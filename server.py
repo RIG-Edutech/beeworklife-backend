@@ -131,12 +131,16 @@ def get_history_detail():
     history_id = request.form.get('history_id')
     return get_history_detail_response(history_id)
     
+def decode_image(image_data):
+    nparr = np.frombuffer(image_data, np.uint8)
+    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    return image
 
 def get_history_detail_response(history_id):
     history_details = database.get_history_details(history_id)
     image_row = database.get_image(history_id)
 
-    image = cv2.imread(image_row['base_image_path'])
+    image = decode_image(image_row[1])
 
     # encode image as jpeg
     _, encoded_img = cv2.imencode('.jpg', image)
@@ -152,8 +156,8 @@ def get_history_detail_response(history_id):
     history_details_json = []
     for detail in history_details:
         history_details_json.append({
-            'emotion_id': detail['emotion_id'], 
-            'probability' : detail['probability'],
+            'emotion_id': detail[1], 
+            'probability' : detail[2],
             
         })
     
@@ -167,14 +171,21 @@ def get_history_detail_response(history_id):
 
 def check_user_id(user_id):
     con = database.get_db_connection()
-    user = con.execute('SELECT * FROM users where user_id = (?)', [user_id]).fetchall()
+    cur = con.cursor()
 
-    # If no user_id was found create a new one
-    if(len(user) == 0):
-        con.execute('INSERT INTO users (user_id) VALUES (?)',[user_id])
+    # Check if the user_id exists in the 'users' table
+    cur.execute('SELECT * FROM users WHERE user_id = %s', [user_id])
+    user = cur.fetchall()
+
+    # If no user_id was found, create a new one
+    if len(user) == 0:
+        cur.execute('INSERT INTO users (user_id) VALUES (%s)', [user_id])
         con.commit()
+
+    cur.close()
     con.close()
     return
+
 
 if __name__=='__main__':
     port = int(os.environ.get("PORT", 5000))

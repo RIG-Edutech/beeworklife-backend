@@ -11,7 +11,7 @@ class Database:
         conn = self.get_db_connection()
         
         cur = conn.cursor()
-        cur.execute("drop table if exists users;drop table if exists images;drop table if exists histories;drop table if exists history_details;drop table if exists emotions;drop table if exists questionnaire;")
+        cur.execute("DROP TABLE IF EXISTS questionnaire, history_details, histories, emotions, images, users CASCADE;")
 
         cur.execute('''CREATE TABLE IF NOT EXISTS users (
         user_id TEXT PRIMARY KEY
@@ -19,6 +19,7 @@ class Database:
 
         CREATE TABLE IF NOT EXISTS images (
             image_id SERIAL PRIMARY KEY,
+            image_data BYTEA NOT NULL,
             base_image_path TEXT NOT NULL,
             result_image_path TEXT NOT NULL
         );
@@ -79,7 +80,7 @@ class Database:
         image_id = self.insert_image(base_image_path, result_image_path)
         
         # Insert history to database
-        history_id = self.insert_history(history_index, user_id, image_id)
+        history_id = self.insert_history(user_id, image_id)
 
         # Insert history details to database
         self.insert_history_details(history_id, prediction)
@@ -87,17 +88,36 @@ class Database:
         return history_id
 
 
-
     def insert_image(self, base_image_path, result_image_path):
-        con = self.get_db_connection()
-        cursor = con.cursor()
-        cursor.execute('INSERT OR REPLACE INTO images (base_image_path, result_image_path) VALUES (?, ?)',[base_image_path, result_image_path])
-        con.commit()
-
-        image_id = cursor.lastrowid
-        cursor.close()
-        con.close()
+        image_id = self.write_blob(base_image_path, result_image_path)
         return image_id
+    
+    def write_blob(self, base_image_path, result_image_path):
+        image_id = 0  # Initialize image_id
+        try:
+            # Read data from an image file
+            image = open(result_image_path, 'rb').read()
+
+            conn = self.get_db_connection()
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute("INSERT INTO images (image_data, base_image_path, result_image_path) "
+                            "VALUES (%s, %s, %s) RETURNING image_id",
+                            (psycopg2.Binary(image), base_image_path, result_image_path))
+                
+                # Fetch the image_id from the RETURNING clause
+                image_id = cursor.fetchone()[0]
+                
+                conn.commit()
+            except (Exception, psycopg2.DatabaseError) as error:
+                print("Error while inserting data in the images table:", error)
+            finally:
+                cursor.close()
+        except Exception as e:
+            print("Error while reading the image file:", e)
+        finally:
+            return image_id
 
     def insert_history_details(self, history_id, prediction):
         print(prediction)
@@ -105,7 +125,7 @@ class Database:
         cur = con.cursor()
         for idx, _ in enumerate(prediction):
             print(history_id, (idx + 1), float(prediction[idx]))
-            cur.execute('INSERT OR REPLACE INTO history_details (history_id, emotion_id, probability) VALUES (?, ? , ?)',[
+            cur.execute('INSERT INTO history_details (history_id, emotion_id, probability) VALUES (%s, %s , %s)',[
                 history_id, (idx + 1), float(prediction[idx])
             ])
         con.commit()
@@ -115,7 +135,7 @@ class Database:
     def get_history(self, user_id):
         con = self.get_db_connection()
         cur = con.cursor()
-        histories = cur.execute('SELECT * FROM histories where user_id = ? order by date DESC', [user_id]).fetchall()
+        histories = cur.execute('SELECT * FROM histories where user_id = %s order by date DESC', [user_id]).fetchall()
         con.commit()
         cur.close()
         con.close()
@@ -124,7 +144,7 @@ class Database:
     def get_highest_prob(self, history_id):
         con = self.get_db_connection()
         cur = con.cursor()
-        highest_prob = cur.execute('select * from history_details where history_id = ? order by probability desc limit 1', [history_id]).fetchone()
+        highest_prob = cur.execute('select * from history_details where history_id = %s order by probability desc limit 1', [history_id]).fetchone()
 
         con.commit()
         cur.close()
@@ -133,29 +153,50 @@ class Database:
 
     def get_image(self, history_id):
         con = self.get_db_connection()
-        image = con.execute('select images.* from images join histories on images.image_id = histories.image_id where history_id = ?', [history_id]).fetchone()
+        cursor = con.cursor()
+        cursor.execute('select images.* from images join histories on images.image_id = histories.image_id where history_id = %s', [history_id])
+        image = cursor.fetchall()[0]
+        con.commit()
+        cursor.close()
         con.close()
         return image
     
     def get_history_details(self, history_id):
         con = self.get_db_connection()
-        history_details = con.execute('select * from history_details where history_id = ? order by probability desc', [history_id]).fetchall()
+        cursor = con.cursor()
+        cursor.execute('select * from history_details where history_id = %s order by probability desc', [history_id])
+        history_details = cursor.fetchall()
+        con.commit()
+        cursor.close()
         con.close()
         return history_details
 
-    def insert_emotions(self, emotion_dict):
+    def insert_emotions_if_empty(self, emotion_dict):
         con = self.get_db_connection()
-        for idx in emotion_dict:
-            con.execute('INSERT OR REPLACE INTO emotions (emotion_name) VALUES (?)',[emotion_dict[idx]])
-        con.commit()
+        cur = con.cursor()
+
+        # Check if the 'emotions' table is empty
+        cur.execute('SELECT COUNT(*) FROM emotions')
+        count = cur.fetchone()[0]
+
+        if count == 0:
+            # The table is empty, so insert emotions
+            for idx in emotion_dict:
+                cur.execute('INSERT INTO emotions (emotion_name) VALUES (%s)', [emotion_dict[idx]])
+            con.commit()
+        else:
+            print("The 'emotions' table is not empty. Skipping insertion.")
+
+        cur.close()
         con.close()
 
-    def insert_history(self, history_index, user_id, image_id):
+
+    def insert_history(self, user_id, image_id):
         con = self.get_db_connection()
         cursor = con.cursor()
-        cursor.execute('INSERT OR REPLACE INTO histories (history_id, user_id, image_id) VALUES (?, ?, ?)',[history_index, user_id, image_id])
+        cursor.execute('INSERT INTO histories (user_id, image_id) VALUES (%s, %s) RETURNING history_id', [user_id, image_id])
         con.commit()
-        history_id = cursor.lastrowid
+        history_id = cursor.fetchone()[0]
         cursor.close()
         con.close()
         return history_id
@@ -182,20 +223,7 @@ class Database:
 
 
     def init_database(self, emotion_dict):
-
-        filename = "./sqlite/database.db"
-
-        if os.path.exists(filename): return
-
-        connection = sql.connect('./sqlite/database.db')
-
-        with open('./sqlite/schema.sql') as f:
-            connection.executescript(f.read())
-        
-        connection.commit()
-        connection.close()
-
-        self.insert_emotions(emotion_dict)
+        self.insert_emotions_if_empty(emotion_dict)
 
     def get_db_connection(self):
 
@@ -215,7 +243,7 @@ class Database:
         serialized_data = self.serialize(content.get('value'))
 
         cursor = con.cursor()
-        cursor.execute('INSERT INTO questionnaire (history_id, value) VALUES (?, ?)',[content.get('history_id'), serialized_data])
+        cursor.execute('INSERT INTO questionnaire (history_id, value) VALUES (%s, %s)',[content.get('history_id'), serialized_data])
         con.commit()
 
         cursor.close()
