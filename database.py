@@ -1,13 +1,62 @@
 import cv2
-from datetime import date, datetime
 import os
 import sqlite3 as sql
-import threading
 import sys
+import os
+import psycopg2
 
 class Database:
     def __init__(self):
-        self.db_lock = threading.Lock()
+        # self.db_lock = threading.Lock()
+        conn = self.get_db_connection()
+        
+        cur = conn.cursor()
+        cur.execute("drop table if exists users;drop table if exists images;drop table if exists histories;drop table if exists history_details;drop table if exists emotions;drop table if exists questionnaire;")
+
+        cur.execute('''CREATE TABLE IF NOT EXISTS users (
+        user_id TEXT PRIMARY KEY
+        );
+
+        CREATE TABLE IF NOT EXISTS images (
+            image_id SERIAL PRIMARY KEY,
+            base_image_path TEXT NOT NULL,
+            result_image_path TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS histories (
+            history_id SERIAL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            image_id INTEGER NOT NULL,
+            date TIMESTAMP NOT NULL DEFAULT NOW(),
+            FOREIGN KEY (user_id) REFERENCES users (user_id) ON UPDATE CASCADE,
+            FOREIGN KEY (image_id) REFERENCES images (image_id) ON UPDATE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS emotions (
+            emotion_id SERIAL PRIMARY KEY,
+            emotion_name TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS history_details (
+            history_id INTEGER NOT NULL,
+            emotion_id INTEGER NOT NULL,
+            probability REAL NOT NULL,
+            FOREIGN KEY (history_id) REFERENCES histories (history_id) ON UPDATE CASCADE,
+            FOREIGN KEY (emotion_id) REFERENCES emotions (emotion_id) ON UPDATE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS questionnaire (
+            history_id INTEGER NOT NULL,
+            value TEXT NOT NULL,
+            FOREIGN KEY (history_id) REFERENCES histories (history_id) ON UPDATE CASCADE
+        );''')
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        pass
+
 
     def upload_image(self, real_img, img, user_id, prediction):
         path = 'uploads/'+user_id + '/'
@@ -53,24 +102,32 @@ class Database:
     def insert_history_details(self, history_id, prediction):
         print(prediction)
         con = self.get_db_connection()
+        cur = con.cursor()
         for idx, _ in enumerate(prediction):
             print(history_id, (idx + 1), float(prediction[idx]))
-            con.execute('INSERT OR REPLACE INTO history_details (history_id, emotion_id, probability) VALUES (?, ? , ?)',[
+            cur.execute('INSERT OR REPLACE INTO history_details (history_id, emotion_id, probability) VALUES (?, ? , ?)',[
                 history_id, (idx + 1), float(prediction[idx])
             ])
         con.commit()
+        cur.close()
         con.close()
 
     def get_history(self, user_id):
         con = self.get_db_connection()
-        histories = con.execute('SELECT * FROM histories where user_id = ? order by date DESC', [user_id]).fetchall()
+        cur = con.cursor()
+        histories = cur.execute('SELECT * FROM histories where user_id = ? order by date DESC', [user_id]).fetchall()
+        con.commit()
+        cur.close()
         con.close()
         return histories   
 
     def get_highest_prob(self, history_id):
         con = self.get_db_connection()
-        highest_prob = con.execute('select * from history_details where history_id = ? order by probability desc limit 1', [history_id]).fetchone()
+        cur = con.cursor()
+        highest_prob = cur.execute('select * from history_details where history_id = ? order by probability desc limit 1', [history_id]).fetchone()
 
+        con.commit()
+        cur.close()
         con.close()
         return highest_prob
 
@@ -141,8 +198,13 @@ class Database:
         self.insert_emotions(emotion_dict)
 
     def get_db_connection(self):
-        conn = sql.connect('./sqlite/database.db')
-        conn.row_factory = sql.Row
+
+        conn = psycopg2.connect(
+        host="localhost",
+        database="beeworklife",
+        user="postgres",
+        password="postgres")
+
         return conn
     
 
