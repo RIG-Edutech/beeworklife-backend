@@ -7,6 +7,10 @@ from model import Model
 from database import Database as MyDatabase
 import os
 import csv
+import openpyxl
+from openpyxl.drawing.image import Image
+from PIL import Image as PILImage
+import io
 
 
 app = Flask(__name__)
@@ -46,19 +50,40 @@ def questionnaire():
 
     return jsonify({'status': 'success'})
 
+def decode_image_PIL(image_data):
+    # Convert binary image data to bytes
+    image_bytes = bytes(image_data)
+    
+    # Create a PIL (Pillow) image from bytes
+    image = PILImage.open(io.BytesIO(image_bytes))
+    
+    return image
+
 @app.route('/csv', methods = ['GET'])
 def excel():
-    csv_file_path = './questionnaire.csv'
-
     rows = database.get_csv_data()
 
-    with open(csv_file_path, 'w', newline='') as csvfile:
-        csv_writer = csv.writer(csvfile)
+    wb = openpyxl.Workbook()
+    ws = wb.active
 
-        for row in rows:
-            values = row['value'].split('#')
-            csv_writer.writerow([row['history_id'], row['emotion_name']] + values)
-    pass
+    row_idx = 1
+    for row in rows:
+        user_id, image_data, emotion_name, probability = row
+        ws.cell(row=row_idx, column=1).value = user_id
+        image = decode_image_PIL(image_data)
+        image_excel = Image(image)
+
+        ws.add_image(image_excel, 'B{}'.format(row_idx))
+        ws.cell(row=row_idx, column=3).value = emotion_name
+        ws.cell(row=row_idx, column=4).value = probability
+        row_idx = row_idx + 1
+
+    excel_filename = 'output.xlsx'
+    wb.save(excel_filename)
+
+    wb.close()
+
+    return send_file('./output.xlsx')
 
 
 

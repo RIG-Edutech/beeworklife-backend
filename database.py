@@ -11,7 +11,7 @@ class Database:
         conn = self.get_db_connection()
         
         cur = conn.cursor()
-        cur.execute("DROP TABLE IF EXISTS questionnaire, history_details, histories, emotions, images, users CASCADE;")
+        # cur.execute("DROP TABLE IF EXISTS questionnaire, history_details, histories, emotions, images, users CASCADE;")
 
         cur.execute('''CREATE TABLE IF NOT EXISTS users (
         user_id TEXT PRIMARY KEY
@@ -200,24 +200,31 @@ class Database:
         cursor.close()
         con.close()
         return history_id
-    
 
     def get_csv_data(self):
         con = self.get_db_connection()
+        cursor = con.cursor()
         query = '''
-            SELECT histories.history_id, emotion_name, questionnaire.value from emotions, questionnaire, histories,
-            (
-                SELECT history_id , emotion_id, MAX(PROBABILITY)
-                FROM history_details
-                GROUP BY history_id
-            ) AS MAX_VAL
-            WHERE histories.history_id = MAX_VAL.history_id
-            AND EMOTIONS.emotion_id = MAX_VAL.emotion_id
-            AND histories.history_id = questionnaire.history_id
+        SELECT
+            h.user_id,
+            i.image_data,
+            e.emotion_name,
+            hd.probability
+        FROM
+            histories h
+        JOIN
+            images i ON h.image_id = i.image_id
+        JOIN
+            history_details hd ON h.history_id = hd.history_id
+        JOIN
+            emotions e ON hd.emotion_id = e.emotion_id
+        '''
+        cursor.execute(query)
 
-            '''
-        rows = con.execute(query).fetchall()
+        rows = cursor.fetchall()
 
+        con.commit()
+        cursor.close()
         con.close()
         return rows
 
