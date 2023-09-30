@@ -71,8 +71,16 @@ def excel():
         user_id, image_data, emotion_name, probability = row
         ws.cell(row=row_idx, column=1).value = user_id
         image = decode_image_PIL(image_data)
-        image_excel = Image(image)
 
+        # Calculate the aspect ratio of the image
+        aspect_ratio = image.width / image.height
+
+        # Set the row height based on the aspect ratio and desired width
+        desired_width = 100  # Adjust the width as needed
+        row_height = int(desired_width / aspect_ratio)
+        ws.row_dimensions[row_idx].height = row_height
+
+        image_excel = Image(image)
         ws.add_image(image_excel, 'B{}'.format(row_idx))
         ws.cell(row=row_idx, column=3).value = emotion_name
         ws.cell(row=row_idx, column=4).value = probability
