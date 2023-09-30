@@ -235,11 +235,12 @@ class Database:
     def get_db_connection(self):
 
         conn = psycopg2.connect(
-        host="ec2-54-208-11-146.compute-1.amazonaws.com",
-        database="db13j9e5196vcs",
-        user="bezuyywszzqass",
-        password="bc1bafbc2ee74ca64abb735bd66e3fb7b8aabdcc9a501b0c505c6ddffd2dec30",
-        port="5432")   
+            host=os.environ.get("DATABASE_HOST"),
+            database=os.environ.get("DATABASE_NAME"),
+            user=os.environ.get("DATABASE_USER"),
+            password= os.environ.get("DATABASE_PASSWORD"),
+            port= os.environ.get("DATABASE_PORT")
+        )   
 
         return conn
     
