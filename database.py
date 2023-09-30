@@ -235,10 +235,11 @@ class Database:
     def get_db_connection(self):
 
         conn = psycopg2.connect(
-        host="localhost",
-        database="beeworklife",
-        user="postgres",
-        password="postgres")
+        host="ec2-54-208-11-146.compute-1.amazonaws.com",
+        database="db13j9e5196vcs",
+        user="bezuyywszzqass",
+        password="bc1bafbc2ee74ca64abb735bd66e3fb7b8aabdcc9a501b0c505c6ddffd2dec30",
+        port="5432")   
 
         return conn
     
