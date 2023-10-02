@@ -11,6 +11,7 @@ import openpyxl
 from openpyxl.drawing.image import Image
 from PIL import Image as PILImage
 import io
+import en_core_web_sm
 
 
 app = Flask(__name__)
@@ -218,6 +219,24 @@ def check_user_id(user_id):
     cur.close()
     con.close()
     return
+
+# E-Learning Backend
+nlp = en_core_web_sm.load()
+@app.route('/api/evaluate', methods=['POST'])
+def evaluate_similarity():
+    try:
+        data = request.json
+        answer = data['answer']
+        key = data['key']
+        doc_answer = nlp(answer)
+        doc_key = nlp(key)
+        similarity = doc_answer.similarity(doc_key)
+        scaled_similarity = int(similarity * 10)
+
+        return jsonify({'similarity': scaled_similarity})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 
 if __name__=='__main__':

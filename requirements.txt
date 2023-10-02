@@ -7,3 +7,4 @@ flask-cors
 psycopg2-binary
 openpyxl
 pillow
+en_core_web_sm
