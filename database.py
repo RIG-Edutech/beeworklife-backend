@@ -4,6 +4,7 @@ import sqlite3 as sql
 import sys
 import os
 import psycopg2
+import dj_database_url
 
 class Database:
     def __init__(self):
@@ -234,11 +235,16 @@ class Database:
 
     def get_db_connection(self):
 
+
+        url = os.environ.get("DATABASE_URL")
+
+        db_credentials_dict = dj_database_url.parse(url)
+
         conn = psycopg2.connect(
-            host=os.environ.get("DATABASE_HOST"),
-            database=os.environ.get("DATABASE_NAME"),
-            user=os.environ.get("DATABASE_USER"),
-            password= os.environ.get("DATABASE_PASSWORD"),
+            host=db_credentials_dict["HOST"],
+            database=db_credentials_dict["NAME"],
+            user=db_credentials_dict["USER"],
+            password= db_credentials_dict["PASSWORD"],
             port= os.environ.get("DATABASE_PORT")
         )   
 

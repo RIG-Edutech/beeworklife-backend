@@ -7,3 +7,4 @@ flask-cors
 psycopg2-binary
 openpyxl
 pillow
+dj-database-url
