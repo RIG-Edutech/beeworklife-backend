@@ -8,3 +8,4 @@ psycopg2-binary
 openpyxl
 pillow
 dj-database-url
+en_core_web_sm
