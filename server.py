@@ -11,7 +11,7 @@ import openpyxl
 from openpyxl.drawing.image import Image
 from PIL import Image as PILImage
 import io
-import en_core_web_sm
+import spacy
 
 
 app = Flask(__name__)
@@ -26,7 +26,7 @@ emotion_dict = {0: "Angry", 1: "Disgusted", 2: "Fearful", 3: "Happy", 4: "Neutra
 UPLOAD_FOLDER = '/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-nlp = en_core_web_sm.load()
+nlp = spacy.load("en_core_web_sm")
 # Create a new CNN Model and Database Model
 
 model = Model()
