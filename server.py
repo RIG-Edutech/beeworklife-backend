@@ -11,8 +11,6 @@ import openpyxl
 from openpyxl.drawing.image import Image
 from PIL import Image as PILImage
 import io
-import spacy
-
 
 app = Flask(__name__)
 CORS(app)
@@ -26,7 +24,6 @@ emotion_dict = {0: "Angry", 1: "Disgusted", 2: "Fearful", 3: "Happy", 4: "Neutra
 UPLOAD_FOLDER = '/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-nlp = spacy.load("en_core_web_sm")
 # Create a new CNN Model and Database Model
 
 model = Model()
@@ -220,25 +217,6 @@ def check_user_id(user_id):
     cur.close()
     con.close()
     return
-
-# E-Learning Backend
-
-@app.route('/api/evaluate', methods=['POST'])
-def evaluate_similarity():
-    try:
-        data = request.json
-        answer = data['answer']
-        key = data['key']
-        doc_answer = nlp(answer)
-        doc_key = nlp(key)
-        similarity = doc_answer.similarity(doc_key)
-        scaled_similarity = int(similarity * 10)
-
-        return jsonify({'similarity': scaled_similarity})
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
 
 if __name__=='__main__':
     port = int(os.environ.get("PORT", 5000))
