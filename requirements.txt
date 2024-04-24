@@ -8,4 +8,5 @@ psycopg2-binary
 openpyxl
 pillow
 dj-database-url
-en_core_web_sm
+spacy
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0.tar.gz

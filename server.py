@@ -26,6 +26,7 @@ emotion_dict = {0: "Angry", 1: "Disgusted", 2: "Fearful", 3: "Happy", 4: "Neutra
 UPLOAD_FOLDER = '/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+nlp = en_core_web_sm.load()
 # Create a new CNN Model and Database Model
 
 model = Model()
@@ -221,7 +222,7 @@ def check_user_id(user_id):
     return
 
 # E-Learning Backend
-nlp = en_core_web_sm.load()
+
 @app.route('/api/evaluate', methods=['POST'])
 def evaluate_similarity():
     try:
